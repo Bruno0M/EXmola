@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "703779469250",
+    "project_id": "exmola-1b8fe",
+    "storage_bucket": "exmola-1b8fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:703779469250:android:2b03933c9526c32929885b",
+        "android_client_info": {
+          "package_name": "com.exmola.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIdptvVOx2s2xHMup8L0oBX0g3zED6zOU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
