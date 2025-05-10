@@ -1,10 +1,8 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Text, Modal, View, TextInput, FlatList, Image, ActivityIndicator } from 'react-native';
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { StyleSheet, FlatList, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useState } from 'react';
 
@@ -81,11 +79,22 @@ const FlagWithFallback = ({ countryCode, size = 40 }: {
   );
 };
 
-export default function TabTwoScreen() {
+type SelectedItem = {
+  currency: string;
+  amount: string;
+  equivalent?: string;
+  countryCode?: string;
+  countryName?: string;
+};
+
+export default function SelectedItemsScreen() {
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
+    { currency: 'AOA', amount: '10.000.000,00', equivalent: '(US)', countryCode: 'AO', countryName: 'Angola' },
+    { currency: 'BRL', amount: '10.000.000,00', equivalent: '(US)', countryCode: 'BR', countryName: 'Brasil' },
+  ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const searchCountries = async (text: string) => {
@@ -152,38 +161,64 @@ export default function TabTwoScreen() {
     : countries;
 
   const handleSelectCountry = (country: Country) => {
-    setSelectedCountry(country);
+    const newItem: SelectedItem = {
+      currency: country.currency.code,
+      amount: '0,00',
+      equivalent: '(US)',
+      countryCode: country.code,
+      countryName: country.name
+    };
+    setSelectedItems([...selectedItems, newItem]);
     setModalVisible(false);
     setSearchText('');
   };
 
+  const renderItem = ({ item }: { item: SelectedItem }) => (
+    <ThemedView style={styles.itemContainer}>
+      {item.countryCode && (
+        <View style={styles.flagContainer}>
+          <FlagWithFallback countryCode={item.countryCode} size={30} />
+        </View>
+      )}
+      <TextInput
+        value={item.currency}
+        style={styles.input}
+        editable={false}
+      />
+      <View style={styles.amountContainer}>
+        <TextInput
+          value={item.amount}
+          style={styles.input}
+          editable={true}
+        />
+        {item.equivalent && (
+          <TextInput
+            value={item.equivalent}
+            style={[styles.input, styles.equivalentInput]}
+            editable={true}
+          />
+        )}
+      </View>
+    </ThemedView>
+  );
+
   return (
     <>
-      <ParallaxScrollView
-        headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-        headerImage={
-          <IconSymbol
-            size={310}
-            color="#808080"
-            name="chevron.left.forwardslash.chevron.right"
-            style={styles.headerImage}
-          />
-        }>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="title">Explore</ThemedText>
-          {selectedCountry && (
-            <View style={styles.selectedCountryContainer}>
-              <FlagWithFallback countryCode={selectedCountry.code} size={40} />
-              <View style={styles.selectedCountryInfo}>
-                <Text style={styles.selectedCountryText}>
-                  {selectedCountry.name}
-                </Text>
-                <Text style={styles.selectedCurrencyText}>
-                  {selectedCountry.currency.code} • {selectedCountry.currency.symbol}
-                </Text>
-              </View>
-            </View>
-          )}
+      <ParallaxScrollView noHeader>
+        <ThemedView style={{ flex: 1, backgroundColor: '#101218' }}>
+          <ThemedView style={styles.titleContainer}>
+            <ThemedText type="title">Moedas Selecionadas</ThemedText>
+          </ThemedView>
+
+          <ThemedView style={styles.listContainer}>
+            <FlatList
+              data={selectedItems}
+              renderItem={renderItem}
+              keyExtractor={(item, index) => index.toString()}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={{ height: 5 }} />}
+            />
+          </ThemedView>
         </ThemedView>
       </ParallaxScrollView>
 
@@ -253,13 +288,62 @@ export default function TabTwoScreen() {
 
 const styles = StyleSheet.create({
   titleContainer: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     gap: 8,
-    paddingVertical: 16,
+    marginBottom: 20,
+    paddingTop: 20,
   },
-  headerImage: {
-    width: 310,
-    height: 310,
+  listContainer: {
+    width: '100%',
+  },
+  itemContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginVertical: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  flagContainer: {
+    marginRight: 10,
+  },
+  currencyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
+  amountText: {
+    fontSize: 16,
+    color: '#1a1a1a',
+  },
+  equivalentText: {
+    fontSize: 14,
+    color: '#666666',
+    marginTop: 4,
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    fontSize: 16,
+    color: '#000000',
+    marginVertical: 4,
+    minWidth: 80,
+  },
+  equivalentInput: {
+    fontSize: 14,
+    color: '#666666',
   },
   floatingButton: {
     position: 'absolute',
@@ -358,26 +442,6 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: '#2E2A3A',
-  },
-  selectedCountryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#2A2438',
-    borderRadius: 8,
-  },
-  selectedCountryInfo: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  selectedCountryText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  selectedCurrencyText: {
-    fontSize: 14,
-    color: '#A0A0A0',
   },
   loadingIndicator: {
     marginVertical: 20,
