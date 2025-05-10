@@ -5,6 +5,7 @@ import { ThemedView } from '@/components/ThemedView';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Country {
   name: string;
@@ -89,8 +90,8 @@ type SelectedItem = {
 
 export default function SelectedItemsScreen() {
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
-    { currency: 'AOA', amount: '10.000.000,00', equivalent: '(US)', countryCode: 'AO', countryName: 'Angola' },
-    { currency: 'BRL', amount: '10.000.000,00', equivalent: '(US)', countryCode: 'BR', countryName: 'Brasil' },
+    { currency: 'AOA', amount: '10.000.000,00', equivalent: '(AOA)', countryCode: 'AO', countryName: 'Angola' },
+    { currency: 'BRL', amount: '10.000.000,00', equivalent: '(BRL)', countryCode: 'BR', countryName: 'Brasil' },
   ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -164,13 +165,17 @@ export default function SelectedItemsScreen() {
     const newItem: SelectedItem = {
       currency: country.currency.code,
       amount: '0,00',
-      equivalent: '(US)',
+      equivalent: `(${country.currency.code})`,
       countryCode: country.code,
       countryName: country.name
     };
     setSelectedItems([...selectedItems, newItem]);
     setModalVisible(false);
     setSearchText('');
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setSelectedItems(selectedItems.filter((_, i) => i !== index));
   };
 
   const renderItem = ({ item }: { item: SelectedItem }) => (
@@ -180,11 +185,16 @@ export default function SelectedItemsScreen() {
           <FlagWithFallback countryCode={item.countryCode} size={30} />
         </View>
       )}
-      <TextInput
-        value={item.currency}
-        style={styles.input}
-        editable={false}
-      />
+      <View style={styles.currencyInfo}>
+        <TextInput
+          value={item.currency}
+          style={styles.currencyInput}
+          editable={false}
+        />
+        {item.countryName && (
+          <Text style={styles.countryName}>{item.countryName}</Text>
+        )}
+      </View>
       <View style={styles.amountContainer}>
         <TextInput
           value={item.amount}
@@ -298,7 +308,6 @@ const styles = StyleSheet.create({
   },
   itemContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 15,
     paddingHorizontal: 20,
@@ -314,22 +323,26 @@ const styles = StyleSheet.create({
   flagContainer: {
     marginRight: 10,
   },
-  currencyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
+  currencyInfo: {
+    marginRight: 10,
+  },
+  currencyInput: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    fontSize: 16,
+    color: '#000000',
+    minWidth: 60,
+  },
+  countryName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   amountContainer: {
+    flex: 1,
     alignItems: 'flex-end',
-  },
-  amountText: {
-    fontSize: 16,
-    color: '#1a1a1a',
-  },
-  equivalentText: {
-    fontSize: 14,
-    color: '#666666',
-    marginTop: 4,
   },
   input: {
     backgroundColor: '#ffffff',
@@ -430,11 +443,6 @@ const styles = StyleSheet.create({
   countryInfo: {
     flex: 1,
   },
-  countryName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
   countryCode: {
     fontSize: 14,
     color: '#A0A0A0',
@@ -445,5 +453,9 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginVertical: 20,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 8,
   },
 });
