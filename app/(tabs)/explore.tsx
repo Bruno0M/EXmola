@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { useState } from 'react';
-import { CountrySelector, FlagWithFallback } from '@/src/components/CountrySelector';
+import { CountrySelector, FlagWithFallback } from '@/components/CountrySelector';
 
 type SelectedItem = {
   currency: string;
@@ -28,7 +28,7 @@ export default function SelectedItemsScreen() {
       countryCode: country.code,
       countryName: country.name
     };
-    setSelectedItems([...selectedItems, newItem]);
+    setSelectedItems(items => [...items, newItem]);
   };
 
   const renderItem = ({ item }: { item: SelectedItem }) => (
@@ -77,7 +77,7 @@ export default function SelectedItemsScreen() {
             <FlatList
               data={selectedItems}
               renderItem={renderItem}
-              keyExtractor={(item, index) => index.toString()}
+              keyExtractor={(item) => `${item.countryCode}-${item.currency}`}
               scrollEnabled={false}
               ItemSeparatorComponent={() => <View style={{ height: 5 }} />}
             />

@@ -4,31 +4,32 @@ import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { addQuotation, getQuotations, initDatabase } from '@/data/database';
+// import { addQuotation, getQuotations, initDatabase } from '@/data/database';
 import { useEffect, useState } from 'react';
-import { Quotation } from '@/data/types';
+// import { Quotation } from '@/data/types';
 
 export default function HomeScreen() {
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  // const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
 
   useEffect(() => {
-    const setupDatabase = async () => {
-      try {
-        console.log('Setting up database...');
-        await initDatabase();
-        // await handleAddQuotation(); // <-- Mock data insertion (commente this line after insertion)
-        await loadQuotations();
-      } catch (error) {
-        console.error('Error setting up database:', error);
-      }
-    };
-    setupDatabase();
+    // const setupDatabase = async () => {
+    //   try {
+    //     console.log('Setting up database...');
+    //     await initDatabase();
+    //     // await handleAddQuotation(); // <-- Mock data insertion (commente this line after insertion)
+    //     await loadQuotations();
+    //   } catch (error) {
+    //     console.error('Error setting up database:', error);
+    //   }
+    // };
+    // setupDatabase();
   }, []);
 
   const loadQuotations = async () => {
     try {
-      const fetchedQuotations = await getQuotations() as Quotation[];
-      setQuotations(fetchedQuotations);
+      // const fetchedQuotations = await getQuotations() as Quotation[];
+      // setQuotations(fetchedQuotations);
     } catch (error) {
       console.error('Error loading quotations:', error);
     }
@@ -64,10 +65,10 @@ export default function HomeScreen() {
         },
       ];
       
-      for (const quotation of quotationsList) {
-        await addQuotation(quotation);
-      }
-      await loadQuotations();
+      // for (const quotation of quotationsList) {
+      //   await addQuotation(quotation);
+      // }
+      // await loadQuotations();
     } catch (error) {
       console.error('Error adding quotations:', error);
     }

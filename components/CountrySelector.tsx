@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator, FlatList } from 'react-native';
 
+// Mapeamento de nomes especiais de países
+const SPECIAL_COUNTRY_NAMES: { [key: string]: string } = {
+  'US': 'Estados Unidos',
+  'GB': 'Reino Unido',
+  'NZ': 'Nova Zelândia',
+};
+
 interface Country {
   name: string;
   code: string;
@@ -79,11 +86,16 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [searchText, setSearchText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadAllCountries = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await fetch(`https://restcountries.com/v3.1/all`);
+      if (!response.ok) {
+        throw new Error('Falha ao carregar dados dos países');
+      }
       const data: CountryApiResponse[] = await response.json();
 
       const formatted = data
@@ -93,10 +105,9 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
           const currencyInfo = country.currencies[currencyCode];
 
           let countryName = country.translations?.por?.common || country.name.common;
-
-          if (country.cca2 === 'US') countryName = 'Estados Unidos';
-          if (country.cca2 === 'GB') countryName = 'Reino Unido';
-          if (country.cca2 === 'NZ') countryName = 'Nova Zelândia';
+          
+          // Usa o mapeamento de nomes especiais
+          countryName = SPECIAL_COUNTRY_NAMES[country.cca2] || countryName;
 
           return {
             name: countryName,
@@ -114,6 +125,7 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
       setCountries(formatted);
     } catch (error) {
       console.error("Erro ao carregar países:", error);
+      setError('Não foi possível carregar a lista de países. Por favor, tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -162,6 +174,7 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
         onRequestClose={() => {
           setModalVisible(false);
           setSearchText('');
+          setError(null);
         }}
       >
         <View style={styles.modalOverlay}>
@@ -182,6 +195,16 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
             <View style={styles.listContainer}>
               {isLoading ? (
                 <ActivityIndicator size="large" color="#FFFFFF" style={styles.loadingIndicator} />
+              ) : error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity 
+                    style={styles.retryButton}
+                    onPress={loadAllCountries}
+                  >
+                    <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <FlatList
                   data={countries}
@@ -248,61 +271,47 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     backgroundColor: '#1D1926',
     padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#2E2A3A',
+    borderRadius: 12,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#FFFFFF',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   searchContainer: {
-    width: '100%',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   searchInput: {
-    width: '100%',
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#2E2A3A',
+    backgroundColor: '#2D2A36',
     borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
+    padding: 12,
     color: '#FFFFFF',
-    backgroundColor: '#2A2438',
+    fontSize: 16,
   },
   listContainer: {
-    width: '100%',
     flex: 1,
   },
   list: {
-    width: '100%',
+    flex: 1,
   },
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    gap: 10,
+    padding: 12,
   },
   flag: {
     borderRadius: 4,
-    marginRight: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-    overflow: 'hidden',
+    marginRight: 12,
   },
   countryInfo: {
     flex: 1,
   },
   countryName: {
     fontSize: 16,
-    fontWeight: '500',
     color: '#FFFFFF',
+    marginBottom: 4,
   },
   countryCode: {
     fontSize: 14,
@@ -310,9 +319,34 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: '#2E2A3A',
+    backgroundColor: '#2D2A36',
   },
   loadingIndicator: {
-    marginVertical: 20,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-});
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#8AB4F8',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+}); 
