@@ -19,6 +19,7 @@
     "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
+    "countries-and-timezones": "^3.8.0",
     "expo": "^53.0.0",
     "expo-blur": "~14.1.4",
     "expo-constants": "~17.1.5",

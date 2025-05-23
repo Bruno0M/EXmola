@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [open1, setOpen1] = useState(false);
   const [open2, setOpen2] = useState(false);
+  const [quotations, setQuotations] = useState<any[]>([]);
 
   function getFlagUrl(code: string) {
     return `https://flagsapi.com/${code.slice(0, 2).toUpperCase()}/flat/64.png`;
@@ -116,6 +117,37 @@ export default function HomeScreen() {
     })();
   }, [selectedCurrency1, selectedCurrency2]);
 
+  useEffect(() => {
+    // Simula carregamento de cotações locais (mock)
+    const mockQuotations = [
+      {
+        id: 0,
+        currency: 'USD',
+        latest_date: '2023-10-01',
+        previous_date: '2023-09-30',
+        latest_value: 1.0,
+        previous_value: 0.95
+      },
+      {
+        id: 1,
+        currency: 'EUR',
+        latest_date: '2023-10-01',
+        previous_date: '2023-09-30',
+        latest_value: 0.85,
+        previous_value: 0.80
+      },
+      {
+        id: 2,
+        currency: 'GBP',
+        latest_date: '2023-10-01',
+        previous_date: '2023-09-30',
+        latest_value: 0.75,
+        previous_value: 0.70
+      }
+    ];
+    setQuotations(mockQuotations);
+  }, []);
+
   const getSymbol = (code: string) => {
     const symbol = currencies.find(c => c.code === code)?.symbol;
     if (!symbol || symbol.toUpperCase() === code.toUpperCase() || /^[A-Za-z]+$/.test(symbol)) {
@@ -138,7 +170,6 @@ export default function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container} nestedScrollEnabled>
       <View style={styles.seletor}>
-        {/* PICKER 1 */}
         <View style={styles.inputArea}>
           <TextInput
             style={styles.input}
@@ -196,7 +227,6 @@ export default function HomeScreen() {
           />
         </TouchableOpacity>
 
-        {/* PICKER 2 */}
         <View style={styles.inputArea}>
           <TextInput
             style={styles.input}
@@ -273,6 +303,15 @@ export default function HomeScreen() {
             style={{ data: { stroke: '#3a86ff', strokeWidth: 2 } }}
           />
         </VictoryChart>
+      </View>
+
+      <View style={{ marginTop: 20 }}>
+        <Text style={styles.chartTitle}>Cotações Locais (Mock)</Text>
+        {quotations.map((quotation) => (
+          <Text key={quotation.id} style={{ color: '#fff', marginBottom: 4 }}>
+            {`${quotation.currency}: ${quotation.latest_value}`}
+          </Text>
+        ))}
       </View>
     </ScrollView>
   );
