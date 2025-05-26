@@ -93,11 +93,12 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
     setError(null);
     try {
       const response = await fetch(`https://restcountries.com/v3.1/all`);
+      console.log('Response:', response);
       if (!response.ok) {
         throw new Error('Falha ao carregar dados dos países');
       }
       const data: CountryApiResponse[] = await response.json();
-
+      console.log('Data:', data);
       const formatted = data
         .filter((country) => country.currencies && country.cca2)
         .map((country) => {

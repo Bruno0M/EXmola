@@ -1,17 +1,14 @@
 import { Button, StyleSheet, View } from "react-native";
 import * as Notifications from "expo-notifications";
-import { HelloWave } from "@/components/HelloWave";
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
 import {
   addQuotation,
   getQuotations,
   initDatabase,
 } from "@/data/database.native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Quotation } from "@/data/types";
 import { registerForPushNotificationsAsync } from "@/services/notificationService";
+import messaging from '@react-native-firebase/messaging';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -21,58 +18,62 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function HomeScreen() {
+function HomeScreen() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const notificationListener = useRef<Notifications.EventSubscription>();
-  const responseListener = useRef<Notifications.EventSubscription>();
 
   useEffect(() => {
-    registerForPushNotificationsAsync();
-
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
-        console.log("Notification received:", notification);
-      });
-
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log("Notification response received:", response);
-      });
-
-    const setupDatabase = async () => {
+    const isHermes = () => !!(global as any).HermesInternal;
+    console.log(isHermes());
+    
+    const setup = async () => {
       try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        await registerForPushNotificationsAsync();
         console.log("Setting up database...");
         await initDatabase();
-        // await handleAddQuotation(); // <-- Mock data insertion (commente this line after insertion)
         await loadQuotations();
       } catch (error) {
-        console.error("Error setting up database:", error);
+        console.error("Error during setup:", error);
       }
     };
-    setupDatabase();
-
-    return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(
-          notificationListener.current
-        );
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-    };
+    
+    setup();
+    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
+      console.log('Mensagem recebida em primeiro plano:', remoteMessage);
+      // Aqui você pode usar expo-notifications para exibir a notificação localmente
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: remoteMessage.notification?.title || "Nova Mensagem",
+          body: remoteMessage.notification?.body || "Corpo da mensagem",
+          data: remoteMessage.data,
+        },
+        trigger: null,
+      });
+    });
+  
+    // Handler para mensagens em segundo plano
+    messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+      console.log('Mensagem recebida em segundo plano:', remoteMessage);
+    });
+  
+    return unsubscribe;
   }, []);
 
   const sendTestNotification = async () => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Test Notification",
-        body: "This is a test notification",
-        data: { data: "Test data" },
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 2 },
-    });
-  }
+    try {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Test Notification",
+          body: "This is a test notification",
+          data: { data: "Test data" },
+        },
+        trigger: null
+      });
+      console.log(`Notification scheduled with ID: ${notificationId}`);
+    } catch (error) {
+      console.error("Error sending notification:", error);
+    }
+  };
 
   const loadQuotations = async () => {
     try {
@@ -125,7 +126,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Button
-        title="Send Test Notification"
+        title="Send Test Notificationn"
         onPress={sendTestNotification}
       />
     </View>
@@ -146,3 +147,5 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 });
+
+export default HomeScreen;
