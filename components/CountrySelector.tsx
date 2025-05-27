@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator, FlatList } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator, FlatList, TouchableWithoutFeedback } from 'react-native';
 
 // Mapeamento de nomes especiais de países
 const SPECIAL_COUNTRY_NAMES: { [key: string]: string } = {
@@ -44,19 +44,19 @@ const getFlagUrl = (countryCode: string) => {
   return `https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`;
 };
 
-export const FlagWithFallback = ({ countryCode, size = 40 }: { 
-  countryCode: string; 
-  size?: number 
+export const FlagWithFallback = ({ countryCode, size = 40 }: {
+  countryCode: string;
+  size?: number
 }) => {
   const [error, setError] = useState(false);
 
   if (error || !countryCode) {
     return (
-      <View style={[styles.flag, { 
-        width: size, 
-        height: size * 0.75, 
-        backgroundColor: '#ccc', 
-        justifyContent: 'center', 
+      <View style={[styles.flag, {
+        width: size,
+        height: size * 0.75,
+        backgroundColor: '#ccc',
+        justifyContent: 'center',
         alignItems: 'center',
       }]}>
         <Text style={{ fontSize: size * 0.3, color: '#333' }}>{countryCode}</Text>
@@ -65,13 +65,13 @@ export const FlagWithFallback = ({ countryCode, size = 40 }: {
   }
 
   return (
-    <Image 
-      source={{ 
+    <Image
+      source={{
         uri: getFlagUrl(countryCode),
         cache: 'force-cache',
       }}
-      style={[styles.flag, { 
-        width: size, 
+      style={[styles.flag, {
+        width: size,
         height: size * 0.75,
         resizeMode: 'cover',
       }]}
@@ -105,7 +105,7 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
           const currencyInfo = country.currencies[currencyCode];
 
           let countryName = country.translations?.por?.common || country.name.common;
-          
+
           // Usa o mapeamento de nomes especiais
           countryName = SPECIAL_COUNTRY_NAMES[country.cca2] || countryName;
 
@@ -156,7 +156,7 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
 
   return (
     <>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.floatingButton}
         onPress={() => {
           setModalVisible(true);
@@ -177,57 +177,66 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
           setError(null);
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Selecione um país</Text>
-            
-            <View style={styles.searchContainer}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Buscar país..."
-                placeholderTextColor="#A0A0A0"
-                value={searchText}
-                onChangeText={filterCountries}
-                autoFocus={true}
-              />
-            </View>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            setModalVisible(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => { }}>
 
-            <View style={styles.listContainer}>
-              {isLoading ? (
-                <ActivityIndicator size="large" color="#FFFFFF" style={styles.loadingIndicator} />
-              ) : error ? (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
-                  <TouchableOpacity 
-                    style={styles.retryButton}
-                    onPress={loadAllCountries}
-                  >
-                    <Text style={styles.retryButtonText}>Tentar Novamente</Text>
-                  </TouchableOpacity>
+
+              <View style={styles.modalContainer}>
+                <Text style={styles.modalTitle}>Selecione um país</Text>
+
+                <View style={styles.searchContainer}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Buscar país..."
+                    placeholderTextColor="#A0A0A0"
+                    value={searchText}
+                    onChangeText={filterCountries}
+                    autoFocus={true}
+                  />
                 </View>
-              ) : (
-                <FlatList
-                  data={countries}
-                  keyExtractor={(item) => item.code}
-                  style={styles.list}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={styles.countryItem}
-                      onPress={() => handleSelectCountry(item)}
-                    >
-                      <FlagWithFallback countryCode={item.code} size={40} />
-                      <View style={styles.countryInfo}>
-                        <Text style={styles.countryName}>{item.name}</Text>
-                        <Text style={styles.countryCode}>{item.code} - {item.currency.code}</Text>
-                      </View>
-                    </TouchableOpacity>
+                <View style={styles.listContainer}>
+                  {isLoading ? (
+                    <ActivityIndicator size="large" color="#FFFFFF" style={styles.loadingIndicator} />
+                  ) : error ? (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{error}</Text>
+                      <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={loadAllCountries}
+                      >
+                        <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={countries}
+                      keyExtractor={(item) => item.code}
+                      style={styles.list}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.countryItem}
+                          onPress={() => handleSelectCountry(item)}
+                        >
+                          <FlagWithFallback countryCode={item.code} size={40} />
+                          <View style={styles.countryInfo}>
+                            <Text style={styles.countryName}>{item.name}</Text>
+                            <Text style={styles.countryCode}>{item.code} - {item.currency.code}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                      ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    />
                   )}
-                  ItemSeparatorComponent={() => <View style={styles.separator} />}
-                />
-              )}
-            </View>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </>
   );
@@ -242,7 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#8AB4F8',
     justifyContent: 'center',
     alignItems: 'center',
-    bottom: 30,
+    bottom: 100,
     right: 30,
     elevation: 6,
     shadowColor: '#000',
