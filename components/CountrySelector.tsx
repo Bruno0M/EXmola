@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator, FlatList, TouchableWithoutFeedback } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator, FlatList, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 
 // Mapeamento de nomes especiais de países
 const SPECIAL_COUNTRY_NAMES: { [key: string]: string } = {
@@ -38,6 +38,8 @@ interface CountryApiResponse {
 
 interface CountrySelectorProps {
   onSelectCountry: (country: Country) => void;
+  isVisible: boolean;
+  onClose: () => void;
 }
 
 const getFlagUrl = (countryCode: string) => {
@@ -80,23 +82,48 @@ export const FlagWithFallback = ({ countryCode, size = 40 }: {
   );
 };
 
-export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
-  const [modalVisible, setModalVisible] = useState(false);
+export function CountrySelector({ 
+  onSelectCountry, 
+  isVisible, 
+  onClose 
+}: CountrySelectorProps) {
+  const [modalVisible, setModalVisible] = useState(isVisible);
   const [allCountries, setAllCountries] = useState<Country[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [searchText, setSearchText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [countriesLoaded, setCountriesLoaded] = useState(false);
+  const [modalHeight, setModalHeight] = useState<'auto' | '80%'>('auto');
+
+  useEffect(() => {
+    if (isVisible) {
+      setModalVisible(true);
+      setCountries([]);
+      setSearchText('');
+      setError(null);
+      setModalHeight('auto');
+    } else {
+      setModalVisible(false);
+      setCountries([]);
+      setSearchText('');
+      setError(null);
+    }
+  }, [isVisible]);
 
   const loadAllCountries = async () => {
+    if (countriesLoaded) return;
+    
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Loading countries...');
       const response = await fetch(`https://restcountries.com/v3.1/all`);
       if (!response.ok) {
         throw new Error('Falha ao carregar dados dos países');
       }
       const data: CountryApiResponse[] = await response.json();
+      console.log('Countries loaded:', data.length);
 
       const formatted = data
         .filter((country) => country.currencies && country.cca2)
@@ -105,8 +132,6 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
           const currencyInfo = country.currencies[currencyCode];
 
           let countryName = country.translations?.por?.common || country.name.common;
-
-          // Usa o mapeamento de nomes especiais
           countryName = SPECIAL_COUNTRY_NAMES[country.cca2] || countryName;
 
           return {
@@ -121,8 +146,9 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
         })
         .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
+      console.log('Formatted countries:', formatted.length);
       setAllCountries(formatted);
-      setCountries(formatted);
+      setCountriesLoaded(true);
     } catch (error) {
       console.error("Erro ao carregar países:", error);
       setError('Não foi possível carregar a lista de países. Por favor, tente novamente.');
@@ -131,123 +157,117 @@ export function CountrySelector({ onSelectCountry }: CountrySelectorProps) {
     }
   };
 
-  const filterCountries = (text: string) => {
+  const filterCountries = async (text: string) => {
+    console.log('Filtering with text:', text);
     setSearchText(text);
-    if (!text) {
-      setCountries(allCountries);
+    
+    if (!countriesLoaded) {
+      await loadAllCountries();
+    }
+
+    if (!text.trim()) {
+      console.log('Empty text, clearing countries');
+      setCountries([]);
+      setModalHeight('auto');
       return;
     }
 
+    const searchTextLower = text.toLowerCase().trim();
     const filtered = allCountries.filter((country) =>
-      country.name.toLowerCase().includes(text.toLowerCase()) ||
-      country.code.toLowerCase().includes(text.toLowerCase()) ||
-      country.currency.code.toLowerCase().includes(text.toLowerCase()) ||
-      country.currency.name.toLowerCase().includes(text.toLowerCase())
+      country.name.toLowerCase().includes(searchTextLower) ||
+      country.code.toLowerCase().includes(searchTextLower) ||
+      country.currency.code.toLowerCase().includes(searchTextLower)
     );
 
+    console.log('Filtered countries:', filtered.length);
+    console.log('First few filtered countries:', filtered.slice(0, 3));
     setCountries(filtered);
+    setModalHeight('80%');
+  };
+
+  const handleClose = () => {
+    onClose();
+    setCountries([]);
+    setSearchText('');
+    setError(null);
   };
 
   const handleSelectCountry = (country: Country) => {
     onSelectCountry(country);
-    setModalVisible(false);
-    setSearchText('');
+    handleClose();
   };
 
   return (
-    <>
-      <TouchableOpacity
-        style={styles.floatingButton}
-        onPress={() => {
-          setModalVisible(true);
-          if (allCountries.length === 0) loadAllCountries();
-        }}
-        activeOpacity={0.85}
+    <Modal
+      visible={modalVisible}
+      onRequestClose={handleClose}
+      animationType="fade"
+      transparent={true}
+    >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
       >
-        <Text style={styles.plusSign}>+</Text>
-      </TouchableOpacity>
-
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(false);
-          setSearchText('');
-          setError(null);
-        }}
-      >
-        <TouchableWithoutFeedback
-          onPress={() => {
-            setModalVisible(false);
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => { }}>
-
-
-              <View style={styles.modalContainer}>
-                <Text style={styles.modalTitle}>Selecione um país</Text>
-
-                <View style={styles.searchContainer}>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Buscar país..."
-                    placeholderTextColor="#A0A0A0"
-                    value={searchText}
-                    onChangeText={filterCountries}
-                    autoFocus={true}
-                  />
-                </View>
-                <View style={styles.listContainer}>
-                  {isLoading ? (
-                    <ActivityIndicator size="large" color="#FFFFFF" style={styles.loadingIndicator} />
-                  ) : error ? (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
-                      <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={loadAllCountries}
-                      >
-                        <Text style={styles.retryButtonText}>Tentar Novamente</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <FlatList
-                      data={countries}
-                      keyExtractor={(item) => item.code}
-                      style={styles.list}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.countryItem}
-                          onPress={() => handleSelectCountry(item)}
-                        >
-                          <FlagWithFallback countryCode={item.code} size={40} />
-                          <View style={styles.countryInfo}>
-                            <Text style={styles.countryName}>{item.name}</Text>
-                            <Text style={styles.countryCode}>{item.code} - {item.currency.code}</Text>
-                          </View>
-                        </TouchableOpacity>
-                      )}
-                      ItemSeparatorComponent={() => <View style={styles.separator} />}
-                    />
-                  )}
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
+        <View style={[styles.modalContainer, { height: modalHeight }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Selecione um país</Text>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={handleClose}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </>
+          
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Digite o nome do país..."
+              placeholderTextColor="#A0A0A0"
+              value={searchText}
+              onChangeText={filterCountries}
+              autoFocus={true}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {countries.length > 0 && (
+            <View style={styles.listContainer}>
+              <FlatList
+                data={countries}
+                keyExtractor={(item) => item.code}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.countryItem}
+                    onPress={() => handleSelectCountry(item)}
+                    activeOpacity={0.7}
+                  >
+                    <FlagWithFallback countryCode={item.code} size={36} />
+                    <View style={styles.countryInfo}>
+                      <Text style={styles.countryName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.countryCode}>{item.code} - {item.currency.code}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            </View>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#8AB4F8',
     justifyContent: 'center',
     alignItems: 'center',
@@ -255,60 +275,92 @@ const styles = StyleSheet.create({
     right: 30,
     elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
     borderWidth: 0,
   },
   plusSign: {
-    fontSize: 44,
+    fontSize: 32,
     color: 'black',
     fontWeight: '300',
     includeFontPadding: false,
     textAlignVertical: 'center',
-    lineHeight: 44,
-    transform: [{ translateY: -3 }],
+    lineHeight: 32,
+    transform: [{ translateY: -1 }],
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContainer: {
-    width: '90%',
-    maxHeight: '80%',
     backgroundColor: '#1D1926',
-    padding: 20,
-    borderRadius: 12,
+    borderRadius: 24,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    backgroundColor: '#1D1926',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D2A36',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 20,
-    textAlign: 'center',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '300',
   },
   searchContainer: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#1D1926',
   },
   searchInput: {
     backgroundColor: '#2D2A36',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     color: '#FFFFFF',
     fontSize: 16,
   },
   listContainer: {
     flex: 1,
+    backgroundColor: '#1D1926',
   },
   list: {
     flex: 1,
+    backgroundColor: '#1D1926',
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: '#1D1926',
   },
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    backgroundColor: '#1D1926',
   },
   flag: {
     borderRadius: 4,
@@ -316,6 +368,7 @@ const styles = StyleSheet.create({
   },
   countryInfo: {
     flex: 1,
+    marginRight: 8,
   },
   countryName: {
     fontSize: 16,
@@ -330,16 +383,24 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#2D2A36',
   },
-  loadingIndicator: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1D1926',
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    marginTop: 12,
+    fontSize: 16,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: '#1D1926',
   },
   errorText: {
     color: '#FF6B6B',
@@ -358,4 +419,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-}); 
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#1D1926',
+  },
+  emptyText: {
+    color: '#A0A0A0',
+    fontSize: 16,
+  },
+});
