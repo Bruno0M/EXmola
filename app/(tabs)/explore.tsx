@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, FlatList, View, TextInput, Text } from 'react-native';
+import { StyleSheet, FlatList, View, TextInput, Text, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
@@ -19,6 +19,7 @@ export default function SelectedItemsScreen() {
     { currency: 'AOA', amount: '10.000.000,00', equivalent: '(AOA)', countryCode: 'AO', countryName: 'Angola' },
     { currency: 'BRL', amount: '10.000.000,00', equivalent: '(BRL)', countryCode: 'BR', countryName: 'Brasil' },
   ]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleSelectCountry = (country: any) => {
     const newItem: SelectedItem = {
@@ -85,7 +86,19 @@ export default function SelectedItemsScreen() {
         </ThemedView>
       </ParallaxScrollView>
 
-      <CountrySelector onSelectCountry={handleSelectCountry} />
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={() => setIsModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.plusSign}>+</Text>
+      </TouchableOpacity>
+
+      <CountrySelector 
+        onSelectCountry={handleSelectCountry}
+        isVisible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+      />
     </>
   );
 }
@@ -103,9 +116,9 @@ const styles = StyleSheet.create({
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    marginVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    marginVertical: 6,
     backgroundColor: '#ffffff',
     borderRadius: 12,
     shadowColor: '#000',
@@ -115,42 +128,67 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   flagContainer: {
-    marginRight: 10,
+    marginRight: 8,
   },
   currencyInfo: {
     flex: 1,
+    marginRight: 8,
   },
   currencyInput: {
     backgroundColor: '#ffffff',
     paddingVertical: 2,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: 6,
-    fontSize: 16,
+    fontSize: 14,
     color: '#000000',
-    minWidth: 60,
+    minWidth: 50,
   },
   countryName: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666666',
     marginTop: 2,
   },
   amountContainer: {
-    marginLeft: 'auto',
     alignItems: 'flex-end',
+    minWidth: 100,
   },
   input: {
     backgroundColor: '#ffffff',
     paddingVertical: 2,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: 6,
-    fontSize: 16,
+    fontSize: 14,
     color: '#000000',
-    marginVertical: 4,
-    minWidth: 120,
+    marginVertical: 2,
+    minWidth: 90,
     textAlign: 'right',
   },
   equivalentInput: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666666',
+  },
+  floatingButton: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#8AB4F8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    bottom: 100, // Aumentado para 100 para ficar mais acima
+    right: 16,
+    elevation: 8, // Aumentado para melhor visibilidade
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 999,
+  },
+  plusSign: {
+    fontSize: 32,
+    color: '#000000',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: 32,
   },
 });
