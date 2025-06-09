@@ -15,17 +15,28 @@ type SelectedItem = {
 };
 
 export default function SelectedItemsScreen() {
-  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
-    { currency: 'AOA', amount: '10.000.000,00', equivalent: '(AOA)', countryCode: 'AO', countryName: 'Angola' },
-    { currency: 'BRL', amount: '10.000.000,00', equivalent: '(BRL)', countryCode: 'BR', countryName: 'Brasil' },
-  ]);
+
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const handleSelectCountry = (country: any) => {
+  // Função para buscar o valor equivalente em BRL (ou outra moeda base)
+  async function fetchEquivalent(currency: string) {
+    try {
+      const resp = await fetch(`https://api.exchangerate.host/convert?from=${currency}&to=BRL&amount=1`);
+      const js = await resp.json();
+      if (js && js.result) {
+        return `R$ ${js.result.toFixed(2)}`;
+      }
+    } catch {}
+    return '';
+  }
+
+  const handleSelectCountry = async (country: any) => {
+    const equivalent = await fetchEquivalent(country.currency.code);
     const newItem: SelectedItem = {
       currency: country.currency.code,
-      amount: '0,00',
-      equivalent: `(${country.currency.code})`,
+      amount: '1',
+      equivalent: equivalent ? equivalent : `(${country.currency.code})`,
       countryCode: country.code,
       countryName: country.name
     };
@@ -53,13 +64,13 @@ export default function SelectedItemsScreen() {
         <TextInput
           value={item.amount}
           style={styles.input}
-          editable={true}
+          editable={false}
         />
         {item.equivalent && (
           <TextInput
             value={item.equivalent}
             style={[styles.input, styles.equivalentInput]}
-            editable={true}
+            editable={false}
           />
         )}
       </View>
