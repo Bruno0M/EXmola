@@ -94,29 +94,19 @@ export function CountrySelector({ onSelectCountry, isVisible, onClose }: Country
     setIsLoading(true);
     setError(null);
     try {
-      console.log('Iniciando carregamento de países...');
       const response = await fetch('https://restcountries.com/v3.1/all?fields=name,currencies,cca2');
-      console.log('Status da resposta:', response.status);
-      
       if (!response.ok) {
         throw new Error(`Erro ao carregar países: ${response.status} ${response.statusText}`);
       }
-      
       const data: RestCountryResponse[] = await response.json();
-      console.log('Número de países carregados:', data.length);
-
       const uniqueCountries = new Set<string>();
       const formatted = data
         .filter(country => {
           if (!country.currencies || Object.keys(country.currencies).length === 0) {
-            console.log(`País sem moeda: ${country.name.common}`);
             return false;
           }
           const currencyCode = Object.keys(country.currencies)[0];
           const hasCurrency = MAIN_CURRENCIES.includes(currencyCode);
-          if (!hasCurrency) {
-            console.log(`Moeda não suportada: ${currencyCode} para ${country.name.common}`);
-          }
           return hasCurrency;
         })
         .map(country => {
@@ -135,27 +125,20 @@ export function CountrySelector({ onSelectCountry, isVisible, onClose }: Country
         })
         .filter(country => {
           if (uniqueCountries.has(country.code)) {
-            console.log(`País duplicado removido: ${country.name} (${country.code})`);
             return false;
           }
           uniqueCountries.add(country.code);
           return true;
         })
         .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-
-      console.log('Número de países após filtragem:', formatted.length);
-
       if (formatted.length === 0) {
         throw new Error('Nenhum país encontrado após filtragem');
       }
-
       setAllCountries(formatted);
       setCountries(formatted);
       setCountriesLoaded(true);
       setModalHeight('80%');
-      console.log('Carregamento de países concluído com sucesso');
     } catch (error) {
-      console.error('Erro detalhado:', error);
       setError(error instanceof Error ? error.message : 'Não foi possível carregar a lista de países');
     } finally {
       setIsLoading(false);
@@ -173,30 +156,22 @@ export function CountrySelector({ onSelectCountry, isVisible, onClose }: Country
       const countryName = country.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const countryCode = country.code.toLowerCase();
       const currencyCode = country.currency.code.toLowerCase();
-      
       return countryName.includes(searchTextLower) ||
              countryCode.includes(searchTextLower) ||
              currencyCode.includes(searchTextLower);
     }).sort((a, b) => {
-      // Prioriza os EUA quando buscar por USD
       if (searchTextLower === 'usd') {
         if (a.name === 'Estados Unidos') return -1;
         if (b.name === 'Estados Unidos') return 1;
       }
-      
-      // Prioriza correspondências exatas do código da moeda
       const aCurrencyExact = a.currency.code.toLowerCase() === searchTextLower;
       const bCurrencyExact = b.currency.code.toLowerCase() === searchTextLower;
       if (aCurrencyExact && !bCurrencyExact) return -1;
       if (!aCurrencyExact && bCurrencyExact) return 1;
-      
-      // Depois prioriza correspondências parciais do código da moeda
       const aCurrencyPartial = a.currency.code.toLowerCase().includes(searchTextLower);
       const bCurrencyPartial = b.currency.code.toLowerCase().includes(searchTextLower);
       if (aCurrencyPartial && !bCurrencyPartial) return -1;
       if (!aCurrencyPartial && bCurrencyPartial) return 1;
-      
-      // Por fim, ordena por nome
       return a.name.localeCompare(b.name, 'pt-BR');
     });
     setCountries(filtered);

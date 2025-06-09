@@ -118,35 +118,32 @@ export default function HomeScreen() {
   }, [selectedCurrency1, selectedCurrency2]);
 
   useEffect(() => {
-    // Simula carregamento de cotações locais (mock)
-    const mockQuotations = [
-      {
-        id: 0,
-        currency: 'USD',
-        latest_date: '2023-10-01',
-        previous_date: '2023-09-30',
-        latest_value: 1.0,
-        previous_value: 0.95
-      },
-      {
-        id: 1,
-        currency: 'EUR',
-        latest_date: '2023-10-01',
-        previous_date: '2023-09-30',
-        latest_value: 0.85,
-        previous_value: 0.80
-      },
-      {
-        id: 2,
-        currency: 'GBP',
-        latest_date: '2023-10-01',
-        previous_date: '2023-09-30',
-        latest_value: 0.75,
-        previous_value: 0.70
+    // Busca cotações dinâmicas para várias moedas em relação à moeda base selecionada
+    (async () => {
+      try {
+        const resp = await fetch(
+          `https://api.exchangerate.host/latest?base=${selectedCurrency1}`
+        );
+        const js = await resp.json();
+        // Monta um array de cotações para as moedas disponíveis
+        const quotationsArr = Object.keys(js.rates)
+          .filter(code => code !== selectedCurrency1)
+          .slice(0, 10) // Limita para não sobrecarregar a tela
+          .map((code, idx) => ({
+            id: idx,
+            currency: code,
+            latest_date: js.date,
+            previous_date: '', // Não disponível nesta API
+            latest_value: js.rates[code],
+            previous_value: null // Não disponível nesta API
+          }));
+        setQuotations(quotationsArr);
+      } catch (e) {
+        setQuotations([]);
+        console.error(e);
       }
-    ];
-    setQuotations(mockQuotations);
-  }, []);
+    })();
+  }, [selectedCurrency1]);
 
   const getSymbol = (code: string) => {
     const symbol = currencies.find(c => c.code === code)?.symbol;
@@ -306,10 +303,10 @@ export default function HomeScreen() {
       </View>
 
       <View style={{ marginTop: 20 }}>
-        <Text style={styles.chartTitle}>Cotações Locais (Mock)</Text>
+        <Text style={styles.chartTitle}>Cotações Locais</Text>
         {quotations.map((quotation) => (
           <Text key={quotation.id} style={{ color: '#fff', marginBottom: 4 }}>
-            {`${quotation.currency}: ${quotation.latest_value}`}
+            {`${getSymbol(quotation.currency)} ${quotation.latest_value.toFixed(2)}`}
           </Text>
         ))}
       </View>
