@@ -18,24 +18,6 @@ interface Country {
   };
 }
 
-interface CountryApiResponse {
-  name: {
-    common: string;
-  };
-  translations: {
-    por: {
-      common: string;
-    };
-  };
-  cca2: string;
-  currencies: {
-    [key: string]: {
-      name: string;
-      symbol: string;
-    };
-  };
-}
-
 interface CountrySelectorProps {
   onSelectCountry: (country: Country) => void;
   isVisible: boolean;
@@ -95,6 +77,31 @@ export function CountrySelector({
   const [error, setError] = useState<string | null>(null);
   const [countriesLoaded, setCountriesLoaded] = useState(false);
   const [modalHeight, setModalHeight] = useState<'auto' | '80%'>('auto');
+  const [currencies, setCurrencies] = useState<{ code: string, name: string, symbol: string }[]>([]);
+  const [currenciesLoading, setCurrenciesLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r1 = await fetch('https://economia.awesomeapi.com.br/json/available/uniq');
+        const d1 = await r1.json();
+        const r2 = await fetch('https://api.exchangerate.host/symbols');
+        const d2 = await r2.json();
+
+        setCurrencies(
+          Object.keys(d1).map(key => ({
+            code: key,
+            name: d1[key],
+            symbol: d2.symbols?.[key]?.symbol || key
+          }))
+        );
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setCurrenciesLoading(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (isVisible) {
@@ -112,61 +119,37 @@ export function CountrySelector({
   }, [isVisible]);
 
   const loadAllCountries = async () => {
-    if (countriesLoaded) return;
-    
+    if (countriesLoaded || currenciesLoading) return;
     setIsLoading(true);
     setError(null);
     try {
-      console.log('Loading countries...');
-      const response = await fetch(`https://restcountries.com/v3.1/all`);
-      if (!response.ok) {
-        throw new Error('Falha ao carregar dados dos países');
-      }
-      const data: CountryApiResponse[] = await response.json();
-      console.log('Countries loaded:', data.length);
-
-      const formatted = data
-        .filter((country) => country.currencies && country.cca2)
-        .map((country) => {
-          const currencyCode = Object.keys(country.currencies)[0];
-          const currencyInfo = country.currencies[currencyCode];
-
-          let countryName = country.translations?.por?.common || country.name.common;
-          countryName = SPECIAL_COUNTRY_NAMES[country.cca2] || countryName;
-
-          return {
-            name: countryName,
-            code: country.cca2,
-            currency: {
-              code: currencyCode,
-              name: currencyInfo.name,
-              symbol: currencyInfo.symbol,
-            },
-          };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-
-      console.log('Formatted countries:', formatted.length);
+      // Cada moeda vira um "país" fictício
+      const formatted = currencies.map((currency) => ({
+        name: currency.name,
+        code: currency.code,
+        currency: {
+          code: currency.code,
+          name: currency.name,
+          symbol: currency.symbol,
+        },
+      })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
       setAllCountries(formatted);
       setCountriesLoaded(true);
     } catch (error) {
-      console.error("Erro ao carregar países:", error);
-      setError('Não foi possível carregar a lista de países. Por favor, tente novamente.');
+      setError('Não foi possível carregar a lista de moedas. Por favor, tente novamente.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const filterCountries = async (text: string) => {
-    console.log('Filtering with text:', text);
     setSearchText(text);
-    
-    if (!countriesLoaded) {
+
+    if (!countriesLoaded && !currenciesLoading) {
       await loadAllCountries();
     }
 
     if (!text.trim()) {
-      console.log('Empty text, clearing countries');
       setCountries([]);
       setModalHeight('auto');
       return;
@@ -178,9 +161,6 @@ export function CountrySelector({
       country.code.toLowerCase().includes(searchTextLower) ||
       country.currency.code.toLowerCase().includes(searchTextLower)
     );
-
-    console.log('Filtered countries:', filtered.length);
-    console.log('First few filtered countries:', filtered.slice(0, 3));
     setCountries(filtered);
     setModalHeight('80%');
   };
