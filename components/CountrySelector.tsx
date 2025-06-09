@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, ActivityIndicator, FlatList, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Modal, TextInput, Image, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 
-// Mapeamento de nomes especiais de países
-const SPECIAL_COUNTRY_NAMES: { [key: string]: string } = {
+const SPECIAL_COUNTRY_NAMES: Record<string, string> = {
   'US': 'Estados Unidos',
   'GB': 'Reino Unido',
   'NZ': 'Nova Zelândia',
 };
+
+const MAIN_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'BRL', 'RUB', 'INR', 'MXN', 'SGD', 'NZD', 'HKD', 'TRY', 'SAR', 'SEK', 'NOK', 'DKK', 'PLN', 'ILS', 'THB', 'IDR', 'MYR', 'PHP', 'CLP', 'COP', 'ARS', 'PEN', 'UYU', 'PYG', 'BOB', 'VES', 'CRC', 'DOP', 'GTQ', 'HNL', 'NIO', 'PAB', 'SVC'];
 
 interface Country {
   name: string;
@@ -18,6 +19,20 @@ interface Country {
   };
 }
 
+interface RestCountryResponse {
+  name: {
+    common: string;
+    official: string;
+  };
+  currencies: {
+    [key: string]: {
+      name: string;
+      symbol: string;
+    };
+  };
+  cca2: string;
+}
+
 interface CountrySelectorProps {
   onSelectCountry: (country: Country) => void;
   isVisible: boolean;
@@ -25,50 +40,29 @@ interface CountrySelectorProps {
 }
 
 const getFlagUrl = (countryCode: string) => {
-  return `https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`;
+  const code = countryCode.slice(0, 2).toUpperCase();
+  return `https://flagsapi.com/${code}/flat/64.png`;
 };
 
-export const FlagWithFallback = ({ countryCode, size = 40 }: {
-  countryCode: string;
-  size?: number
-}) => {
+export const FlagWithFallback = ({ countryCode, size = 40 }: { countryCode: string; size?: number }) => {
   const [error, setError] = useState(false);
-
   if (error || !countryCode) {
     return (
-      <View style={[styles.flag, {
-        width: size,
-        height: size * 0.75,
-        backgroundColor: '#ccc',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }]}>
+      <View style={[styles.flag, { width: size, height: size * 0.75, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ fontSize: size * 0.3, color: '#333' }}>{countryCode}</Text>
       </View>
     );
   }
-
   return (
     <Image
-      source={{
-        uri: getFlagUrl(countryCode),
-        cache: 'force-cache',
-      }}
-      style={[styles.flag, {
-        width: size,
-        height: size * 0.75,
-        resizeMode: 'cover',
-      }]}
+      source={{ uri: getFlagUrl(countryCode) }}
+      style={[styles.flag, { width: size, height: size * 0.75, resizeMode: 'cover' }]}
       onError={() => setError(true)}
     />
   );
 };
 
-export function CountrySelector({ 
-  onSelectCountry, 
-  isVisible, 
-  onClose 
-}: CountrySelectorProps) {
+export function CountrySelector({ onSelectCountry, isVisible, onClose }: CountrySelectorProps) {
   const [modalVisible, setModalVisible] = useState(isVisible);
   const [allCountries, setAllCountries] = useState<Country[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -77,39 +71,16 @@ export function CountrySelector({
   const [error, setError] = useState<string | null>(null);
   const [countriesLoaded, setCountriesLoaded] = useState(false);
   const [modalHeight, setModalHeight] = useState<'auto' | '80%'>('auto');
-  const [currencies, setCurrencies] = useState<{ code: string, name: string, symbol: string }[]>([]);
-  const [currenciesLoading, setCurrenciesLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r1 = await fetch('https://economia.awesomeapi.com.br/json/available/uniq');
-        const d1 = await r1.json();
-        const r2 = await fetch('https://api.exchangerate.host/symbols');
-        const d2 = await r2.json();
-
-        setCurrencies(
-          Object.keys(d1).map(key => ({
-            code: key,
-            name: d1[key],
-            symbol: d2.symbols?.[key]?.symbol || key
-          }))
-        );
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setCurrenciesLoading(false);
-      }
-    })();
-  }, []);
 
   useEffect(() => {
     if (isVisible) {
       setModalVisible(true);
-      setCountries([]);
       setSearchText('');
       setError(null);
       setModalHeight('auto');
+      if (!countriesLoaded) {
+        loadAllCountries();
+      }
     } else {
       setModalVisible(false);
       setCountries([]);
@@ -119,50 +90,91 @@ export function CountrySelector({
   }, [isVisible]);
 
   const loadAllCountries = async () => {
-    if (countriesLoaded || currenciesLoading) return;
+    if (countriesLoaded) return;
     setIsLoading(true);
     setError(null);
     try {
-      // Cada moeda vira um "país" fictício
-      const formatted = currencies.map((currency) => ({
-        name: currency.name,
-        code: currency.code,
-        currency: {
-          code: currency.code,
-          name: currency.name,
-          symbol: currency.symbol,
-        },
-      })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      const response = await fetch('https://restcountries.com/v3.1/all?fields=name,currencies,cca2');
+      if (!response.ok) {
+        throw new Error(`Erro ao carregar países: ${response.status} ${response.statusText}`);
+      }
+      const data: RestCountryResponse[] = await response.json();
+      const uniqueCountries = new Set<string>();
+      const formatted = data
+        .filter(country => {
+          if (!country.currencies || Object.keys(country.currencies).length === 0) {
+            return false;
+          }
+          const currencyCode = Object.keys(country.currencies)[0];
+          const hasCurrency = MAIN_CURRENCIES.includes(currencyCode);
+          return hasCurrency;
+        })
+        .map(country => {
+          const currencyCode = Object.keys(country.currencies)[0];
+          const currency = country.currencies[currencyCode];
+          const countryName = SPECIAL_COUNTRY_NAMES[country.cca2] || country.name.common;
+          return {
+            name: countryName,
+            code: country.cca2,
+            currency: {
+              code: currencyCode,
+              name: currency.name,
+              symbol: currency.symbol,
+            },
+          };
+        })
+        .filter(country => {
+          if (uniqueCountries.has(country.code)) {
+            return false;
+          }
+          uniqueCountries.add(country.code);
+          return true;
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      if (formatted.length === 0) {
+        throw new Error('Nenhum país encontrado após filtragem');
+      }
       setAllCountries(formatted);
+      setCountries(formatted);
       setCountriesLoaded(true);
+      setModalHeight('80%');
     } catch (error) {
-      setError('Não foi possível carregar a lista de moedas. Por favor, tente novamente.');
+      setError(error instanceof Error ? error.message : 'Não foi possível carregar a lista de países');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filterCountries = async (text: string) => {
+  const filterCountries = (text: string) => {
     setSearchText(text);
-
-    if (!countriesLoaded && !currenciesLoading) {
-      await loadAllCountries();
-    }
-
     if (!text.trim()) {
-      setCountries([]);
-      setModalHeight('auto');
+      setCountries(allCountries);
       return;
     }
-
-    const searchTextLower = text.toLowerCase().trim();
-    const filtered = allCountries.filter((country) =>
-      country.name.toLowerCase().includes(searchTextLower) ||
-      country.code.toLowerCase().includes(searchTextLower) ||
-      country.currency.code.toLowerCase().includes(searchTextLower)
-    );
+    const searchTextLower = text.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const filtered = allCountries.filter(country => {
+      const countryName = country.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const countryCode = country.code.toLowerCase();
+      const currencyCode = country.currency.code.toLowerCase();
+      return countryName.includes(searchTextLower) ||
+             countryCode.includes(searchTextLower) ||
+             currencyCode.includes(searchTextLower);
+    }).sort((a, b) => {
+      if (searchTextLower === 'usd') {
+        if (a.name === 'Estados Unidos') return -1;
+        if (b.name === 'Estados Unidos') return 1;
+      }
+      const aCurrencyExact = a.currency.code.toLowerCase() === searchTextLower;
+      const bCurrencyExact = b.currency.code.toLowerCase() === searchTextLower;
+      if (aCurrencyExact && !bCurrencyExact) return -1;
+      if (!aCurrencyExact && bCurrencyExact) return 1;
+      const aCurrencyPartial = a.currency.code.toLowerCase().includes(searchTextLower);
+      const bCurrencyPartial = b.currency.code.toLowerCase().includes(searchTextLower);
+      if (aCurrencyPartial && !bCurrencyPartial) return -1;
+      if (!aCurrencyPartial && bCurrencyPartial) return 1;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
     setCountries(filtered);
-    setModalHeight('80%');
   };
 
   const handleClose = () => {
@@ -177,28 +189,34 @@ export function CountrySelector({
     handleClose();
   };
 
-  return (
-    <Modal
-      visible={modalVisible}
-      onRequestClose={handleClose}
-      animationType="fade"
-      transparent={true}
+  const renderItem = ({ item }: { item: Country }) => (
+    <TouchableOpacity 
+      style={styles.countryItem} 
+      onPress={() => handleSelectCountry(item)} 
+      activeOpacity={0.7}
     >
+      <FlagWithFallback countryCode={item.code} size={36} />
+      <View style={styles.countryInfo}>
+        <Text style={styles.countryName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.countryCode}>{item.code} - {item.currency.code}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <Modal visible={modalVisible} onRequestClose={handleClose} animationType="slide" transparent={true}>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.modalOverlay}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
         <View style={[styles.modalContainer, { height: modalHeight }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Selecione um país</Text>
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={handleClose}
-            >
+            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
           </View>
-          
           <View style={styles.searchContainer}>
             <TextInput
               style={styles.searchInput}
@@ -209,33 +227,49 @@ export function CountrySelector({
               autoFocus={true}
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
             />
           </View>
-
-          {countries.length > 0 && (
-            <View style={styles.listContainer}>
+          <View style={styles.listContainer}>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Carregando países...</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity 
+                  style={styles.retryButton} 
+                  onPress={() => {
+                    setCountriesLoaded(false);
+                    loadAllCountries();
+                  }}
+                >
+                  <Text style={styles.retryButtonText}>Tentar novamente</Text>
+                </TouchableOpacity>
+              </View>
+            ) : countries.length === 0 ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Nenhum país encontrado</Text>
+              </View>
+            ) : (
               <FlatList
                 data={countries}
                 keyExtractor={(item) => item.code}
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.countryItem}
-                    onPress={() => handleSelectCountry(item)}
-                    activeOpacity={0.7}
-                  >
-                    <FlagWithFallback countryCode={item.code} size={36} />
-                    <View style={styles.countryInfo}>
-                      <Text style={styles.countryName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.countryCode}>{item.code} - {item.currency.code}</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+                renderItem={renderItem}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={true}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
               />
-            </View>
-          )}
+            )}
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -243,169 +277,139 @@ export function CountrySelector({
 }
 
 const styles = StyleSheet.create({
-  floatingButton: {
-    position: 'absolute',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#8AB4F8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    bottom: 100,
-    right: 30,
-    elevation: 6,
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
+  },
+  modalContainer: { 
+    backgroundColor: '#1D1926', 
+    borderRadius: 24, 
+    width: '100%', 
+    maxWidth: 500, 
+    alignSelf: 'center', 
+    flexDirection: 'column', 
+    overflow: 'hidden', 
+    maxHeight: '80%',
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    borderWidth: 0,
   },
-  plusSign: {
-    fontSize: 32,
-    color: 'black',
-    fontWeight: '300',
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-    lineHeight: 32,
-    transform: [{ translateY: -1 }],
+  modalHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 20, 
+    paddingTop: 20, 
+    paddingBottom: 20, 
+    backgroundColor: '#1D1926', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#2D2A36' 
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  modalTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF' 
   },
-  modalContainer: {
-    backgroundColor: '#1D1926',
-    borderRadius: 24,
-    width: '100%',
-    maxWidth: 500,
-    alignSelf: 'center',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
+  closeButton: { 
+    padding: 8 
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
-    backgroundColor: '#1D1926',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2D2A36',
+  closeButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: 20, 
+    fontWeight: '300' 
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  searchContainer: { 
+    paddingHorizontal: 20, 
+    paddingBottom: 16, 
+    backgroundColor: '#1D1926' 
   },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '300',
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: '#1D1926',
-  },
-  searchInput: {
-    backgroundColor: '#2D2A36',
-    borderRadius: 12,
-    padding: 12,
-    color: '#FFFFFF',
+  searchInput: { 
+    backgroundColor: '#2D2A36', 
+    borderRadius: 12, 
+    padding: 12, 
+    color: '#FFFFFF', 
     fontSize: 16,
+    minHeight: 48
   },
-  listContainer: {
-    flex: 1,
+  listContainer: { 
+    flex: 1, 
+    backgroundColor: '#1D1926' 
+  },
+  list: { 
+    flex: 1, 
+    backgroundColor: '#1D1926' 
+  },
+  listContent: { 
+    paddingHorizontal: 20, 
+    paddingBottom: 20, 
+    backgroundColor: '#1D1926' 
+  },
+  countryItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 12, 
+    paddingHorizontal: 4, 
     backgroundColor: '#1D1926',
+    minHeight: 60
   },
-  list: {
-    flex: 1,
-    backgroundColor: '#1D1926',
+  flag: { 
+    borderRadius: 4, 
+    marginRight: 12 
   },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#1D1926',
+  countryInfo: { 
+    flex: 1, 
+    marginRight: 8 
   },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    backgroundColor: '#1D1926',
+  countryName: { 
+    fontSize: 16, 
+    color: '#FFFFFF', 
+    marginBottom: 4 
   },
-  flag: {
-    borderRadius: 4,
-    marginRight: 12,
+  countryCode: { 
+    fontSize: 14, 
+    color: '#A0A0A0' 
   },
-  countryInfo: {
-    flex: 1,
-    marginRight: 8,
+  separator: { 
+    height: 1, 
+    backgroundColor: '#2D2A36' 
   },
-  countryName: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginBottom: 4,
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
   },
-  countryCode: {
-    fontSize: 14,
-    color: '#A0A0A0',
+  loadingText: { 
+    color: '#FFFFFF', 
+    fontSize: 16 
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#2D2A36',
+  errorContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#1D1926',
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 12,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#1D1926',
-  },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 16,
+  errorText: { 
+    color: '#FF6B6B', 
+    fontSize: 16, 
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 16
   },
   retryButton: {
-    backgroundColor: '#8AB4F8',
+    backgroundColor: '#2D2A36',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
+    marginTop: 8
   },
   retryButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#1D1926',
-  },
-  emptyText: {
-    color: '#A0A0A0',
-    fontSize: 16,
-  },
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500'
+  }
 });
